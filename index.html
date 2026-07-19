@@ -1,0 +1,126 @@
+<script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
+
+<div class="chat-container">
+  <h2>Global Live Chat</h2>
+  <div id="chat-box" class="chat-box"></div>
+  <div class="input-area">
+    <input type="text" id="user-input" placeholder="Type a message to the world...">
+    <button id="send-btn">Send</button>
+  </div>
+</div>
+
+<style>
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #0f172a;
+    color: #f8fafc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80vh;
+    margin: 0;
+  }
+  .chat-container {
+    width: 90%;
+    max-width: 400px;
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    border: 1px solid #334155;
+  }
+  h2 { margin-top: 0; text-align: center; color: #10b981; }
+  .chat-box {
+    height: 280px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 14px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+  }
+  .input-area { display: flex; gap: 8px; }
+  input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #334155;
+    background: #1e293b;
+    color: white;
+    border-radius: 8px;
+    outline: none;
+  }
+  button {
+    padding: 12px 18px;
+    background-color: #10b981;
+    color: #0f172a;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .msg { margin: 8px 0; line-height: 1.4; }
+  .my-msg { color: #38bdf8; }
+  .others-msg { color: #a7f3d0; }
+</style>
+
+<script>
+  window.onload = function() {
+    const chatBox = document.getElementById("chat-box");
+    const userInput = document.getElementById("user-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    // Generate a random ID numbers so the app knows who is who
+    const myId = "User_" + Math.floor(Math.random() * 9000 + 1000);
+
+    chatBox.innerHTML += `<p style='color:#94a3b8; font-style:italic;'>Connected as: ${myId}</p>`;
+
+    // Connect to a free demo real-time server channel
+    const pubnub = new PubNub({
+      publishKey: "pub-c-47b85526-6a2c-4b6e-82dd-7dbfb1ecf60e", // Free demo keys
+      subscribeKey: "sub-c-5eb17424-64b5-4b36-bf6d-2c70fb90cb06",
+      userId: myId
+    });
+
+    // Listen for incoming messages from the internet
+    pubnub.addListener({
+      message: function(event) {
+        const data = event.message;
+        
+        // Check if the message came from me or someone else
+        if (data.sender === myId) {
+          chatBox.innerHTML += `<p class='msg my-msg'><b>You:</b> ${data.text}</p>`;
+        } else {
+          chatBox.innerHTML += `<p class='msg others-msg'><b>${data.sender}:</b> ${data.text}</p>`;
+        }
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    });
+
+    // Subscribe to a global chat channel room named "phone-chat-room"
+    pubnub.subscribe({
+      channels: ["phone-chat-room"]
+    });
+
+    // Send a message out to the internet network
+    function broadcastMessage() {
+      const text = userInput.value.trim();
+      if (text !== "") {
+        pubnub.publish({
+          channel: "phone-chat-room",
+          message: {
+            sender: myId,
+            text: text
+          }
+        });
+        userInput.value = "";
+      }
+    }
+
+    sendBtn.onclick = broadcastMessage;
+    userInput.addEventListener("keypress", function(event) {
+      if (event.key === "Enter") {
+        broadcastMessage();
+      }
+    });
+  };
+</script>
