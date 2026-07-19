@@ -1,126 +1,112 @@
-<script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
-
-<div class="chat-container">
-  <h2>Global Live Chat</h2>
-  <div id="chat-box" class="chat-box"></div>
-  <div class="input-area">
-    <input type="text" id="user-input" placeholder="Type a message to the world...">
-    <button id="send-btn">Send</button>
-  </div>
-</div>
-
-<style>
-  body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background-color: #0f172a;
-    color: #f8fafc;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 80vh;
-    margin: 0;
-  }
-  .chat-container {
-    width: 90%;
-    max-width: 400px;
-    background: #1e293b;
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-    border: 1px solid #334155;
-  }
-  h2 { margin-top: 0; text-align: center; color: #10b981; }
-  .chat-box {
-    height: 280px;
-    border: 1px solid #334155;
-    background: #0f172a;
-    border-radius: 12px;
-    padding: 14px;
-    overflow-y: auto;
-    margin-bottom: 12px;
-  }
-  .input-area { display: flex; gap: 8px; }
-  input {
-    flex: 1;
-    padding: 12px;
-    border: 1px solid #334155;
-    background: #1e293b;
-    color: white;
-    border-radius: 8px;
-    outline: none;
-  }
-  button {
-    padding: 12px 18px;
-    background-color: #10b981;
-    color: #0f172a;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  .msg { margin: 8px 0; line-height: 1.4; }
-  .my-msg { color: #38bdf8; }
-  .others-msg { color: #a7f3d0; }
-</style>
-
-<script>
-  window.onload = function() {
-    const chatBox = document.getElementById("chat-box");
-    const userInput = document.getElementById("user-input");
-    const sendBtn = document.getElementById("send-btn");
-
-    // Generate a random ID numbers so the app knows who is who
-    const myId = "User_" + Math.floor(Math.random() * 9000 + 1000);
-
-    chatBox.innerHTML += `<p style='color:#94a3b8; font-style:italic;'>Connected as: ${myId}</p>`;
-
-    // Connect to a free demo real-time server channel
-    const pubnub = new PubNub({
-      publishKey: "pub-c-47b85526-6a2c-4b6e-82dd-7dbfb1ecf60e", // Free demo keys
-      subscribeKey: "sub-c-5eb17424-64b5-4b36-bf6d-2c70fb90cb06",
-      userId: myId
-    });
-
-    // Listen for incoming messages from the internet
-    pubnub.addListener({
-      message: function(event) {
-        const data = event.message;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Chat App</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        body { display: flex; height: 100vh; background-color: #f0f2f5; }
         
-        // Check if the message came from me or someone else
-        if (data.sender === myId) {
-          chatBox.innerHTML += `<p class='msg my-msg'><b>You:</b> ${data.text}</p>`;
-        } else {
-          chatBox.innerHTML += `<p class='msg others-msg'><b>${data.sender}:</b> ${data.text}</p>`;
+        /* Sidebar for groups */
+        #sidebar { width: 200px; background-color: #2c3e50; color: white; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; background-color: #1a252f; font-weight: bold; text-align: center; font-size: 14px; }
+        .group-list { flex: 1; overflow-y: auto; list-style: none; padding: 10px; }
+        .group-item { padding: 12px; background: #34495e; margin-bottom: 8px; border-radius: 5px; cursor: pointer; text-align: center; font-size: 13px; }
+        .group-item:hover { background: #415b76; }
+        
+        /* Main Chat Area */
+        #chat-area { flex: 1; display: flex; flex-direction: column; height: 100%; }
+        #chat-header { padding: 15px; background: white; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+        #call-btn { background-color: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        /* Messages Window */
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { padding: 10px 15px; border-radius: 8px; max-width: 75%; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); align-self: flex-start; font-size: 14px; }
+        .message.box-out { background: #dcf8c6; align-self: flex-end; }
+        .message img { max-width: 100%; border-radius: 5px; margin-top: 5px; display: block; }
+        
+        /* Input Area */
+        #input-container { padding: 15px; background: white; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; }
+        #message-input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 14px; }
+        #send-btn { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        .file-label { cursor: pointer; font-size: 22px; padding: 5px; }
+        #file-input { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="sidebar-header">Chat Groups</div>
+        <ul class="group-list">
+            <li class="group-item">Main Lounge</li>
+            <li class="group-item">+ New Group</li>
+        </ul>
+    </div>
+
+    <div id="chat-area">
+        <div id="chat-header">
+            <h3 id="group-title">Main Lounge</h3>
+            <button id="call-btn" onclick="alert('Starting call integration...')">📞 Call</button>
+        </div>
+        
+        <div id="messages">
+            <div class="message">Hey everyone! Welcome to the new group chat.</div>
+            <div class="message box-out">Awesome! Can we send pictures here?</div>
+        </div>
+
+        <div id="input-container">
+            <label class="file-label" for="file-input">🖼️</label>
+            <input type="file" id="file-input" accept="image/*">
+            
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const messagesContainer = document.getElementById('messages');
+        const fileInput = document.getElementById('file-input');
+
+        // Function to add a text message to the screen
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text !== '') {
+                const msgDiv = document.createElement('div');
+                msgDiv.classList.add('message', 'box-out');
+                msgDiv.innerText = text;
+                messagesContainer.appendChild(msgDiv);
+                messageInput.value = '';
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
         }
-        chatBox.scrollTop = chatBox.scrollHeight;
-      }
-    });
 
-    // Subscribe to a global chat channel room named "phone-chat-room"
-    pubnub.subscribe({
-      channels: ["phone-chat-room"]
-    });
+        // Send message on click
+        sendBtn.addEventListener('click', sendMessage);
 
-    // Send a message out to the internet network
-    function broadcastMessage() {
-      const text = userInput.value.trim();
-      if (text !== "") {
-        pubnub.publish({
-          channel: "phone-chat-room",
-          message: {
-            sender: myId,
-            text: text
-          }
+        // Send message on Enter key
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
         });
-        userInput.value = "";
-      }
-    }
 
-    sendBtn.onclick = broadcastMessage;
-    userInput.addEventListener("keypress", function(event) {
-      if (event.key === "Enter") {
-        broadcastMessage();
-      }
-    });
-  };
-</script>
+        // Handle image uploading and display it in chat
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.classList.add('message', 'box-out');
+                    msgDiv.innerHTML = `Sent an image:<br><img src="${e.target.result}">`;
+                    messagesContainer.appendChild(msgDiv);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+
+</body>
+</html>
